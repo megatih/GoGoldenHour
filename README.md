@@ -193,7 +193,7 @@ Due to Qt Location not being available in miqt, the map uses:
 - Leaflet.js for interactive mapping
 - OpenStreetMap tiles
 
-**Current Limitation**: Map clicks don't communicate back to Go yet (WebChannel not fully implemented). Location updates reload the map HTML.
+**Communication**: Map clicks are communicated to Go via console message interception (`OnJavaScriptConsoleMessage`). Location updates from Go to JavaScript use URL hash fragment changes, enabling smooth map panning without full page reloads.
 
 ### Solar Calculations
 
@@ -207,12 +207,6 @@ customEvents := []sampa.CustomSunEvent{
      Elevation: func(_ sampa.SunPosition) float64 { return -8.0 }},
 }
 ```
-
-## Known Issues
-
-1. **Map Click Events**: Clicking on the map doesn't update the location in Go yet. Use the search box or "Detect My Location" button instead.
-
-2. **Map Reload**: When location changes, the entire map reloads rather than smoothly panning.
 
 ## Troubleshooting
 

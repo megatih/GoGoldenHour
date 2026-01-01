@@ -1,7 +1,10 @@
 package widgets
 
 import (
+	"encoding/base64"
 	"fmt"
+	"strconv"
+	"strings"
 
 	qt "github.com/mappu/miqt/qt6"
 	we "github.com/mappu/miqt/qt6/webengine"
@@ -10,10 +13,12 @@ import (
 // MapView wraps a QWebEngineView displaying a Leaflet map
 type MapView struct {
 	view       *we.QWebEngineView
+	page       *we.QWebEnginePage
 	onMapClick func(lat, lon float64)
 	ready      bool
 	currentLat float64
 	currentLon float64
+	baseURL    string // Store base URL for hash-based updates
 }
 
 // NewMapView creates a new map view widget
@@ -34,33 +39,50 @@ func (mv *MapView) setupView() {
 	// Set minimum size for the map
 	mv.view.SetMinimumSize2(400, 400)
 
-	// Get the page for configuration
-	page := mv.view.Page()
+	// Create a custom page directly (required for overriding virtual methods)
+	mv.page = we.NewQWebEnginePage()
+	mv.view.SetPage(mv.page)
+
+	// Intercept console messages for map click events
+	mv.page.OnJavaScriptConsoleMessage(func(super func(level we.QWebEnginePage__JavaScriptConsoleMessageLevel, message string, lineNumber int, sourceID string), level we.QWebEnginePage__JavaScriptConsoleMessageLevel, message string, lineNumber int, sourceID string) {
+		// Check for map click message
+		if strings.HasPrefix(message, "MAPCLICK:") {
+			parts := strings.Split(strings.TrimPrefix(message, "MAPCLICK:"), ",")
+			if len(parts) == 2 {
+				lat, err1 := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+				lon, err2 := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+				if err1 == nil && err2 == nil && mv.onMapClick != nil {
+					mv.onMapClick(lat, lon)
+				}
+			}
+		}
+		// Call parent handler for other messages
+		super(level, message, lineNumber, sourceID)
+	})
 
 	// Connect to load finished signal
 	mv.view.OnLoadFinished(func(ok bool) {
 		mv.ready = ok
-		if ok {
-			// Map is ready, we could set up initial state here
-		}
 	})
 
 	// Load the map HTML
-	mv.loadMapHTML(page)
+	mv.loadMapHTML()
 }
 
-// loadMapHTML loads the map HTML content
-func (mv *MapView) loadMapHTML(page *we.QWebEnginePage) {
-	// Create inline HTML with embedded Leaflet
+// loadMapHTML loads the map HTML content using data URL
+func (mv *MapView) loadMapHTML() {
 	html := mv.createMapHTML()
+	encoded := base64.StdEncoding.EncodeToString([]byte(html))
+	mv.baseURL = "data:text/html;base64," + encoded
 
-	// Load HTML directly (resources are loaded from CDN)
-	page.SetHtml(html)
+	// Load with initial coordinates in hash
+	url := fmt.Sprintf("%s#%f,%f,13", mv.baseURL, mv.currentLat, mv.currentLon)
+	mv.page.SetUrl(qt.NewQUrl3(url))
 }
 
 // createMapHTML creates the complete HTML for the map
 func (mv *MapView) createMapHTML() string {
-	return fmt.Sprintf(`<!DOCTYPE html>
+	return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -69,12 +91,12 @@ func (mv *MapView) createMapHTML() string {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        html, body { height: 100%%; margin: 0; padding: 0; }
-        #map { height: 100%%; width: 100%%; }
+        html, body { height: 100%; margin: 0; padding: 0; }
+        #map { height: 100%; width: 100%; }
         .golden-marker {
-            background: linear-gradient(135deg, #ff9800 0%%, #ff5722 100%%);
+            background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
             border: 3px solid #fff;
-            border-radius: 50%%;
+            border-radius: 50%;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
             width: 20px;
             height: 20px;
@@ -84,8 +106,28 @@ func (mv *MapView) createMapHTML() string {
 <body>
     <div id="map"></div>
     <script>
-        // Initialize map with marker
-        var map = L.map('map').setView([%f, %f], 13);
+        // Parse initial coordinates from URL hash
+        function parseHash() {
+            var hash = window.location.hash.substring(1);
+            if (hash) {
+                var parts = hash.split(',');
+                if (parts.length >= 2) {
+                    var lat = parseFloat(parts[0]);
+                    var lon = parseFloat(parts[1]);
+                    var zoom = parts.length >= 3 ? parseInt(parts[2]) : 13;
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        return { lat: lat, lon: lon, zoom: zoom };
+                    }
+                }
+            }
+            return { lat: 51.5074, lon: -0.1278, zoom: 13 }; // Default: London
+        }
+
+        // Get initial position from hash
+        var initial = parseHash();
+
+        // Initialize map
+        var map = L.map('map').setView([initial.lat, initial.lon], initial.zoom);
 
         // Add OpenStreetMap tiles
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -101,18 +143,31 @@ func (mv *MapView) createMapHTML() string {
         });
 
         // Add initial marker
-        var currentMarker = L.marker([%f, %f], {icon: goldenIcon}).addTo(map);
+        var currentMarker = L.marker([initial.lat, initial.lon], {icon: goldenIcon}).addTo(map);
 
-        // Handle map clicks (click detection not available without WebChannel)
+        // Update marker and center map
+        function setLocation(lat, lon, zoom) {
+            currentMarker.setLatLng([lat, lon]);
+            map.setView([lat, lon], zoom || map.getZoom());
+        }
+
+        // Handle hash changes (location updates from Go)
+        window.addEventListener('hashchange', function() {
+            var pos = parseHash();
+            setLocation(pos.lat, pos.lon, pos.zoom);
+        });
+
+        // Handle map clicks - notify Go via console message
         map.on('click', function(e) {
             var lat = e.latlng.lat;
             var lon = e.latlng.lng;
             currentMarker.setLatLng([lat, lon]);
-            // Note: Click notification to Go requires WebChannel which is not yet implemented
+            // Send click event to Go via console message
+            console.log('MAPCLICK:' + lat + ',' + lon);
         });
     </script>
 </body>
-</html>`, mv.currentLat, mv.currentLon, mv.currentLat, mv.currentLon)
+</html>`
 }
 
 // Widget returns the underlying QWidget
@@ -120,17 +175,23 @@ func (mv *MapView) Widget() *qt.QWidget {
 	return mv.view.QWidget
 }
 
-// SetLocation sets the map location and marker by reloading the map
+// SetLocation updates the map location using hash fragment (no page reload)
 func (mv *MapView) SetLocation(lat, lon float64) {
 	mv.currentLat = lat
 	mv.currentLon = lon
-	// Reload the map with new coordinates
-	mv.loadMapHTML(mv.view.Page())
+
+	// Update via hash change to avoid full page reload
+	url := fmt.Sprintf("%s#%f,%f,13", mv.baseURL, lat, lon)
+	mv.page.SetUrl(qt.NewQUrl3(url))
 }
 
 // CenterMap centers the map on the given coordinates
 func (mv *MapView) CenterMap(lat, lon float64, zoom int) {
-	mv.SetLocation(lat, lon)
+	mv.currentLat = lat
+	mv.currentLon = lon
+
+	url := fmt.Sprintf("%s#%f,%f,%d", mv.baseURL, lat, lon, zoom)
+	mv.page.SetUrl(qt.NewQUrl3(url))
 }
 
 // IsReady returns true if the map is loaded and ready
