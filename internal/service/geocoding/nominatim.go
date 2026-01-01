@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/megatih/GoGoldenHour/internal/domain"
+	"github.com/megatih/GoGoldenHour/internal/service/timezone"
 )
 
 const (
@@ -99,7 +100,7 @@ func (s *NominatimService) Search(query string, limit int) ([]domain.Location, e
 			Longitude: lon,
 			Elevation: 0, // Nominatim doesn't provide elevation
 			Name:      r.DisplayName,
-			Timezone:  "", // Would need to determine from coordinates
+			Timezone:  timezone.FromCoordinates(lat, lon),
 		})
 	}
 

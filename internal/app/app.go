@@ -10,6 +10,7 @@ import (
 	"github.com/megatih/GoGoldenHour/internal/service/geocoding"
 	"github.com/megatih/GoGoldenHour/internal/service/geolocation"
 	"github.com/megatih/GoGoldenHour/internal/service/solar"
+	"github.com/megatih/GoGoldenHour/internal/service/timezone"
 	"github.com/megatih/GoGoldenHour/internal/storage"
 	"github.com/megatih/GoGoldenHour/internal/ui"
 )
@@ -156,7 +157,7 @@ func (a *App) OnMapClick(lat, lon float64) {
 				Latitude:  lat,
 				Longitude: lon,
 				Name:      name,
-				Timezone:  a.location.Timezone, // Keep current timezone
+				Timezone:  timezone.FromCoordinates(lat, lon),
 			}
 			if name == "" {
 				loc.Name = fmt.Sprintf("%.4f, %.4f", lat, lon)
