@@ -1,7 +1,15 @@
 package config
 
 import (
+	"time"
+
 	"github.com/megatih/GoGoldenHour/internal/domain"
+)
+
+// HTTP client configuration
+const (
+	// DefaultHTTPTimeout is the default timeout for HTTP requests
+	DefaultHTTPTimeout = 10 * time.Second
 )
 
 // AppConfig holds the complete application configuration

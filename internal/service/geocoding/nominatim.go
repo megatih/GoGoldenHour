@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
+	"strconv"
 
+	"github.com/megatih/GoGoldenHour/internal/config"
 	"github.com/megatih/GoGoldenHour/internal/domain"
 	"github.com/megatih/GoGoldenHour/internal/service/timezone"
 )
 
 const (
-	// Nominatim OpenStreetMap geocoding endpoint
-	nominatimEndpoint = "https://nominatim.openstreetmap.org/search"
-	// Request timeout
-	requestTimeout = 10 * time.Second
+	// Nominatim OpenStreetMap endpoints
+	nominatimSearchEndpoint  = "https://nominatim.openstreetmap.org/search"
+	nominatimReverseEndpoint = "https://nominatim.openstreetmap.org/reverse"
 	// User agent required by Nominatim
 	userAgent = "GoGoldenHour/1.0 (https://github.com/megatih/GoGoldenHour)"
 )
@@ -39,9 +39,30 @@ type NominatimService struct {
 func NewNominatimService() *NominatimService {
 	return &NominatimService{
 		client: &http.Client{
-			Timeout: requestTimeout,
+			Timeout: config.DefaultHTTPTimeout,
 		},
 	}
+}
+
+// doRequest performs an HTTP GET request with the required User-Agent header
+func (s *NominatimService) doRequest(reqURL string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("Nominatim returned status %d", resp.StatusCode)
+	}
+
+	return resp, nil
 }
 
 // Search searches for locations matching the query string
@@ -55,7 +76,7 @@ func (s *NominatimService) Search(query string, limit int) ([]domain.Location, e
 	}
 
 	// Build request URL
-	reqURL, err := url.Parse(nominatimEndpoint)
+	reqURL, err := url.Parse(nominatimSearchEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
 	}
@@ -63,25 +84,14 @@ func (s *NominatimService) Search(query string, limit int) ([]domain.Location, e
 	q := reqURL.Query()
 	q.Set("q", query)
 	q.Set("format", "json")
-	q.Set("limit", fmt.Sprintf("%d", limit))
+	q.Set("limit", strconv.Itoa(limit))
 	reqURL.RawQuery = q.Encode()
 
-	// Create request with required User-Agent
-	req, err := http.NewRequest("GET", reqURL.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("User-Agent", userAgent)
-
-	resp, err := s.client.Do(req)
+	resp, err := s.doRequest(reqURL.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Nominatim returned status %d", resp.StatusCode)
-	}
 
 	var results []nominatimResult
 	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
@@ -91,9 +101,8 @@ func (s *NominatimService) Search(query string, limit int) ([]domain.Location, e
 	// Convert to domain locations
 	locations := make([]domain.Location, 0, len(results))
 	for _, r := range results {
-		var lat, lon float64
-		fmt.Sscanf(r.Lat, "%f", &lat)
-		fmt.Sscanf(r.Lon, "%f", &lon)
+		lat, _ := strconv.ParseFloat(r.Lat, 64)
+		lon, _ := strconv.ParseFloat(r.Lon, 64)
 
 		locations = append(locations, domain.Location{
 			Latitude:  lat,
@@ -109,23 +118,23 @@ func (s *NominatimService) Search(query string, limit int) ([]domain.Location, e
 
 // ReverseGeocode converts coordinates to a location name
 func (s *NominatimService) ReverseGeocode(lat, lon float64) (string, error) {
-	reqURL := fmt.Sprintf("https://nominatim.openstreetmap.org/reverse?lat=%f&lon=%f&format=json", lat, lon)
-
-	req, err := http.NewRequest("GET", reqURL, nil)
+	// Build request URL
+	reqURL, err := url.Parse(nominatimReverseEndpoint)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("failed to parse URL: %w", err)
 	}
-	req.Header.Set("User-Agent", userAgent)
 
-	resp, err := s.client.Do(req)
+	q := reqURL.Query()
+	q.Set("lat", strconv.FormatFloat(lat, 'f', -1, 64))
+	q.Set("lon", strconv.FormatFloat(lon, 'f', -1, 64))
+	q.Set("format", "json")
+	reqURL.RawQuery = q.Encode()
+
+	resp, err := s.doRequest(reqURL.String())
 	if err != nil {
 		return "", fmt.Errorf("failed to reverse geocode: %w", err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Nominatim returned status %d", resp.StatusCode)
-	}
 
 	var result struct {
 		DisplayName string `json:"display_name"`

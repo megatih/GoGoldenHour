@@ -23,6 +23,28 @@ func (c *Calculator) UpdateSettings(settings domain.Settings) {
 	c.settings = settings
 }
 
+// toSampaLocation converts a domain.Location to sampa.Location
+func toSampaLocation(loc domain.Location) sampa.Location {
+	return sampa.Location{
+		Latitude:  loc.Latitude,
+		Longitude: loc.Longitude,
+		Elevation: loc.Elevation,
+	}
+}
+
+// extractTimeRange extracts a time range from sampa sun positions
+func extractTimeRange(events map[string]sampa.SunPosition, startKey, endKey string) domain.TimeRange {
+	start, hasStart := events[startKey]
+	end, hasEnd := events[endKey]
+	if hasStart && hasEnd {
+		return domain.TimeRange{
+			Start: start.DateTime,
+			End:   end.DateTime,
+		}
+	}
+	return domain.TimeRange{}
+}
+
 // Calculate computes all sun times for a given location and date
 func (c *Calculator) Calculate(loc domain.Location, date time.Time) (domain.SunTimes, error) {
 	// Load timezone
@@ -35,12 +57,7 @@ func (c *Calculator) Calculate(loc domain.Location, date time.Time) (domain.SunT
 	// Ensure date is in the correct timezone
 	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, tz)
 
-	// Create sampa location
-	sampaLoc := sampa.Location{
-		Latitude:  loc.Latitude,
-		Longitude: loc.Longitude,
-		Elevation: loc.Elevation,
-	}
+	sampaLoc := toSampaLocation(loc)
 
 	// Define custom events for Golden and Blue Hour boundaries
 	customEvents := c.createCustomEvents()
@@ -53,49 +70,15 @@ func (c *Calculator) Calculate(loc domain.Location, date time.Time) (domain.SunT
 
 	// Build the result
 	sunTimes := domain.SunTimes{
-		Date:      date,
-		Location:  loc,
-		Sunrise:   events.Sunrise.DateTime,
-		Sunset:    events.Sunset.DateTime,
-		SolarNoon: events.Transit.DateTime,
-	}
-
-	// Extract Golden Hour times
-	if morningStart, ok := events.Others["GoldenMorningStart"]; ok {
-		if morningEnd, ok := events.Others["GoldenMorningEnd"]; ok {
-			sunTimes.GoldenMorning = domain.TimeRange{
-				Start: morningStart.DateTime,
-				End:   morningEnd.DateTime,
-			}
-		}
-	}
-
-	if eveningStart, ok := events.Others["GoldenEveningStart"]; ok {
-		if eveningEnd, ok := events.Others["GoldenEveningEnd"]; ok {
-			sunTimes.GoldenEvening = domain.TimeRange{
-				Start: eveningStart.DateTime,
-				End:   eveningEnd.DateTime,
-			}
-		}
-	}
-
-	// Extract Blue Hour times
-	if morningStart, ok := events.Others["BlueMorningStart"]; ok {
-		if morningEnd, ok := events.Others["BlueMorningEnd"]; ok {
-			sunTimes.BlueMorning = domain.TimeRange{
-				Start: morningStart.DateTime,
-				End:   morningEnd.DateTime,
-			}
-		}
-	}
-
-	if eveningStart, ok := events.Others["BlueEveningStart"]; ok {
-		if eveningEnd, ok := events.Others["BlueEveningEnd"]; ok {
-			sunTimes.BlueEvening = domain.TimeRange{
-				Start: eveningStart.DateTime,
-				End:   eveningEnd.DateTime,
-			}
-		}
+		Date:          date,
+		Location:      loc,
+		Sunrise:       events.Sunrise.DateTime,
+		Sunset:        events.Sunset.DateTime,
+		SolarNoon:     events.Transit.DateTime,
+		GoldenMorning: extractTimeRange(events.Others, "GoldenMorningStart", "GoldenMorningEnd"),
+		GoldenEvening: extractTimeRange(events.Others, "GoldenEveningStart", "GoldenEveningEnd"),
+		BlueMorning:   extractTimeRange(events.Others, "BlueMorningStart", "BlueMorningEnd"),
+		BlueEvening:   extractTimeRange(events.Others, "BlueEveningStart", "BlueEveningEnd"),
 	}
 
 	return sunTimes, nil
@@ -176,13 +159,7 @@ func (c *Calculator) createCustomEvents() []sampa.CustomSunEvent {
 
 // GetCurrentSunPosition returns the current position of the sun
 func (c *Calculator) GetCurrentSunPosition(loc domain.Location) (float64, float64, error) {
-	sampaLoc := sampa.Location{
-		Latitude:  loc.Latitude,
-		Longitude: loc.Longitude,
-		Elevation: loc.Elevation,
-	}
-
-	pos, err := sampa.GetSunPosition(time.Now(), sampaLoc, nil)
+	pos, err := sampa.GetSunPosition(time.Now(), toSampaLocation(loc), nil)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get sun position: %w", err)
 	}

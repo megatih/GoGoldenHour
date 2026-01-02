@@ -60,8 +60,6 @@ func (s *PreferencesStore) Load() (domain.Settings, error) {
 
 // Save saves settings to disk
 func (s *PreferencesStore) Save(settings domain.Settings) error {
-	settings.Validate()
-
 	data, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal settings: %w", err)

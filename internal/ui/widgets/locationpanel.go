@@ -31,6 +31,14 @@ func NewLocationPanel(onSearch func(query string), onDetect func()) *LocationPan
 	return lp
 }
 
+// performSearch executes the search if query is non-empty and callback is set
+func (lp *LocationPanel) performSearch() {
+	query := lp.searchInput.Text()
+	if query != "" && lp.onSearch != nil {
+		lp.onSearch(query)
+	}
+}
+
 // setupUI creates the location panel UI
 func (lp *LocationPanel) setupUI() {
 	lp.groupBox = qt.NewQGroupBox3("Location")
@@ -44,21 +52,9 @@ func (lp *LocationPanel) setupUI() {
 	lp.searchBtn = qt.NewQPushButton3("Go")
 	lp.searchBtn.SetFixedWidth(50)
 
-	// Connect search button click
-	lp.searchBtn.OnClicked(func() {
-		query := lp.searchInput.Text()
-		if query != "" && lp.onSearch != nil {
-			lp.onSearch(query)
-		}
-	})
-
-	// Connect enter key in search input
-	lp.searchInput.OnReturnPressed(func() {
-		query := lp.searchInput.Text()
-		if query != "" && lp.onSearch != nil {
-			lp.onSearch(query)
-		}
-	})
+	// Connect search button click and enter key
+	lp.searchBtn.OnClicked(func() { lp.performSearch() })
+	lp.searchInput.OnReturnPressed(func() { lp.performSearch() })
 
 	searchRow.AddWidget(lp.searchInput.QWidget)
 	searchRow.AddWidget(lp.searchBtn.QWidget)

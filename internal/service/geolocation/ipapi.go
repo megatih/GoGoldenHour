@@ -4,16 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
+	"github.com/megatih/GoGoldenHour/internal/config"
 	"github.com/megatih/GoGoldenHour/internal/domain"
 )
 
 const (
 	// IP-API endpoint (free tier, no API key needed)
 	ipAPIEndpoint = "http://ip-api.com/json/"
-	// Request timeout
-	requestTimeout = 10 * time.Second
 )
 
 // ipAPIResponse represents the JSON response from ip-api.com
@@ -40,7 +38,7 @@ type IPAPIService struct {
 func NewIPAPIService() *IPAPIService {
 	return &IPAPIService{
 		client: &http.Client{
-			Timeout: requestTimeout,
+			Timeout: config.DefaultHTTPTimeout,
 		},
 	}
 }

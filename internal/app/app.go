@@ -151,6 +151,7 @@ func (a *App) SearchLocation(query string) {
 func (a *App) OnMapClick(lat, lon float64) {
 	// Reverse geocode to get location name
 	go func() {
+		// Error is intentionally ignored - we fall back to coordinate display if geocoding fails
 		name, _ := a.geocoding.ReverseGeocode(lat, lon)
 		mainthread.Wait(func() {
 			loc := domain.Location{

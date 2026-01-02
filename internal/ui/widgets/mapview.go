@@ -21,6 +21,9 @@ type MapView struct {
 	baseURL    string // Store base URL for hash-based updates
 }
 
+// Default zoom level for the map
+const defaultZoom = 13
+
 // NewMapView creates a new map view widget
 func NewMapView(onMapClick func(lat, lon float64)) *MapView {
 	mv := &MapView{
@@ -32,6 +35,11 @@ func NewMapView(onMapClick func(lat, lon float64)) *MapView {
 
 	mv.setupView()
 	return mv
+}
+
+// buildLocationURL constructs a URL with location coordinates in the hash fragment
+func (mv *MapView) buildLocationURL(lat, lon float64, zoom int) string {
+	return fmt.Sprintf("%s#%f,%f,%d", mv.baseURL, lat, lon, zoom)
 }
 
 // setupView initializes the web engine view
@@ -76,8 +84,7 @@ func (mv *MapView) loadMapHTML() {
 	mv.baseURL = "data:text/html;base64," + encoded
 
 	// Load with initial coordinates in hash
-	url := fmt.Sprintf("%s#%f,%f,13", mv.baseURL, mv.currentLat, mv.currentLon)
-	mv.page.SetUrl(qt.NewQUrl3(url))
+	mv.page.SetUrl(qt.NewQUrl3(mv.buildLocationURL(mv.currentLat, mv.currentLon, defaultZoom)))
 }
 
 // createMapHTML creates the complete HTML for the map
@@ -181,8 +188,7 @@ func (mv *MapView) SetLocation(lat, lon float64) {
 	mv.currentLon = lon
 
 	// Update via hash change to avoid full page reload
-	url := fmt.Sprintf("%s#%f,%f,13", mv.baseURL, lat, lon)
-	mv.page.SetUrl(qt.NewQUrl3(url))
+	mv.page.SetUrl(qt.NewQUrl3(mv.buildLocationURL(lat, lon, defaultZoom)))
 }
 
 // CenterMap centers the map on the given coordinates
@@ -190,8 +196,7 @@ func (mv *MapView) CenterMap(lat, lon float64, zoom int) {
 	mv.currentLat = lat
 	mv.currentLon = lon
 
-	url := fmt.Sprintf("%s#%f,%f,%d", mv.baseURL, lat, lon, zoom)
-	mv.page.SetUrl(qt.NewQUrl3(url))
+	mv.page.SetUrl(qt.NewQUrl3(mv.buildLocationURL(lat, lon, zoom)))
 }
 
 // IsReady returns true if the map is loaded and ready

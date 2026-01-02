@@ -1,6 +1,8 @@
 package widgets
 
 import (
+	"fmt"
+
 	qt "github.com/mappu/miqt/qt6"
 	"github.com/megatih/GoGoldenHour/internal/domain"
 )
@@ -113,35 +115,39 @@ func (tp *TimePanel) SetSunTimes(st domain.SunTimes, use24Hour bool) {
 	tp.use24Hour = use24Hour
 
 	// Sunrise and sunset
-	tp.sunriseLabel.SetText("Sunrise: " + domain.FormatTime(st.Sunrise, use24Hour))
-	tp.sunsetLabel.SetText("Sunset: " + domain.FormatTime(st.Sunset, use24Hour))
+	tp.sunriseLabel.SetText(fmt.Sprintf("Sunrise: %s", domain.FormatTime(st.Sunrise, use24Hour)))
+	tp.sunsetLabel.SetText(fmt.Sprintf("Sunset: %s", domain.FormatTime(st.Sunset, use24Hour)))
 
 	// Golden Hour
 	if st.GoldenMorning.IsValid() {
-		tp.goldenMorning.SetText("AM: " + domain.FormatTime(st.GoldenMorning.Start, use24Hour) +
-			" - " + domain.FormatTime(st.GoldenMorning.End, use24Hour))
+		tp.goldenMorning.SetText(fmt.Sprintf("AM: %s - %s",
+			domain.FormatTime(st.GoldenMorning.Start, use24Hour),
+			domain.FormatTime(st.GoldenMorning.End, use24Hour)))
 	} else {
 		tp.goldenMorning.SetText("AM: N/A")
 	}
 
 	if st.GoldenEvening.IsValid() {
-		tp.goldenEvening.SetText("PM: " + domain.FormatTime(st.GoldenEvening.Start, use24Hour) +
-			" - " + domain.FormatTime(st.GoldenEvening.End, use24Hour))
+		tp.goldenEvening.SetText(fmt.Sprintf("PM: %s - %s",
+			domain.FormatTime(st.GoldenEvening.Start, use24Hour),
+			domain.FormatTime(st.GoldenEvening.End, use24Hour)))
 	} else {
 		tp.goldenEvening.SetText("PM: N/A")
 	}
 
 	// Blue Hour
 	if st.BlueMorning.IsValid() {
-		tp.blueMorning.SetText("AM: " + domain.FormatTime(st.BlueMorning.Start, use24Hour) +
-			" - " + domain.FormatTime(st.BlueMorning.End, use24Hour))
+		tp.blueMorning.SetText(fmt.Sprintf("AM: %s - %s",
+			domain.FormatTime(st.BlueMorning.Start, use24Hour),
+			domain.FormatTime(st.BlueMorning.End, use24Hour)))
 	} else {
 		tp.blueMorning.SetText("AM: N/A")
 	}
 
 	if st.BlueEvening.IsValid() {
-		tp.blueEvening.SetText("PM: " + domain.FormatTime(st.BlueEvening.Start, use24Hour) +
-			" - " + domain.FormatTime(st.BlueEvening.End, use24Hour))
+		tp.blueEvening.SetText(fmt.Sprintf("PM: %s - %s",
+			domain.FormatTime(st.BlueEvening.Start, use24Hour),
+			domain.FormatTime(st.BlueEvening.End, use24Hour)))
 	} else {
 		tp.blueEvening.SetText("PM: N/A")
 	}
