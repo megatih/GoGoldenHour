@@ -5,6 +5,39 @@ All notable changes to GoGoldenHour will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-01-02
+
+### Changed
+
+- **Code Optimization**: Refactored codebase for better performance and maintainability
+  - Replaced `fmt.Sscanf` with `strconv.ParseFloat` for more efficient float parsing
+  - Replaced `fmt.Sprintf("%d")` with `strconv.Itoa` for integer-to-string conversion
+  - Added consistent URL construction using `url.Values` in geocoding service
+
+### Added
+
+- **Helper Functions**: Extracted common patterns into reusable helpers
+  - `doRequest()` in nominatim.go for HTTP request deduplication
+  - `toSampaLocation()` and `extractTimeRange()` in calculator.go
+  - `performSearch()` in locationpanel.go
+  - `buildLocationURL()` in mapview.go with `defaultZoom` constant
+
+- **Shared Configuration**: Added `config.DefaultHTTPTimeout` constant for consistent HTTP client configuration across services
+
+### Removed
+
+- Empty placeholder directories (`internal/bridge/`, `resources/`)
+- Redundant `Validate()` call in `preferences.go` Save method (validation already happens on Load)
+- Duplicate HTTP timeout constants (now centralized in config)
+
+### Technical
+
+- Reduced code duplication by ~60 lines through helper extraction
+- Improved string formatting efficiency in TimePanel using `fmt.Sprintf`
+- All services now use shared timeout configuration from `config.DefaultHTTPTimeout`
+
+---
+
 ## [0.1.1] - 2026-01-02
 
 ### Fixed
@@ -73,24 +106,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Uses go-sampa v1.0.0 for solar calculations
 - Tested on Arch Linux ARM (Khadas Edge2) with Qt 6.10.1
 
-### Known Limitations
+### Known Limitations (v0.1.0)
 
-- Map click events don't communicate back to Go (WebChannel not implemented)
-- Location changes reload entire map HTML instead of smooth panning
-- MESA GPU warning on ARM devices (cosmetic, doesn't affect functionality)
+- ~~Map click events don't communicate back to Go~~ (Fixed in v0.1.1 via console message interception)
+- ~~Location changes reload entire map HTML~~ (Fixed in v0.1.1 via URL hash fragment updates)
+- MESA GPU warning on ARM devices (cosmetic, fixed in v0.1.1 with GPU disable flag)
 
 ## [Unreleased]
 
 ### Planned
 
-- WebChannel implementation for bidirectional Go-JavaScript communication
-- Smooth map panning when location changes
 - Notification/alarm for golden hour start
 - Export sun times to calendar
 - Dark mode theme
 - System tray icon with quick access
 - Multiple saved locations
 - Sunrise/sunset notifications
+- Unit tests for core services
 
 ---
 
@@ -98,5 +130,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.1.2 | 2026-01-02 | Code optimization, helper extraction, shared config |
 | 0.1.1 | 2026-01-02 | GPU fix for ARM devices, compact two-column UI layout |
 | 0.1.0 | 2026-01-01 | Initial release with core functionality |

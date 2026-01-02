@@ -44,7 +44,7 @@ A cross-platform desktop application for photographers to calculate Golden Hour 
 
 ## Requirements
 
-- Go 1.22 or later
+- Go 1.24 or later
 - Qt 6.x with WebEngine support
 - Linux, Windows, or macOS
 
@@ -82,22 +82,22 @@ GoGoldenHour/
 │   └── main.go                 # Application entry point
 ├── internal/
 │   ├── app/
-│   │   └── app.go              # Application orchestration
-│   ├── bridge/
-│   │   └── jsbridge.go         # Go-JavaScript bridge (placeholder)
+│   │   └── app.go              # Application controller
 │   ├── config/
-│   │   └── config.go           # Configuration management
+│   │   └── config.go           # Configuration and shared constants
 │   ├── domain/
 │   │   ├── location.go         # Location entity
-│   │   ├── settings.go         # Settings entity
+│   │   ├── settings.go         # Settings entity with validation
 │   │   └── suntime.go          # Sun time calculations entity
 │   ├── service/
 │   │   ├── geocoding/
 │   │   │   └── nominatim.go    # Location search via Nominatim
 │   │   ├── geolocation/
 │   │   │   └── ipapi.go        # IP-based location detection
-│   │   └── solar/
-│   │       └── calculator.go   # Solar position calculations
+│   │   ├── solar/
+│   │   │   └── calculator.go   # Solar position calculations
+│   │   └── timezone/
+│   │       └── lookup.go       # Timezone lookup from coordinates
 │   ├── storage/
 │   │   └── preferences.go      # Persistent storage
 │   └── ui/
@@ -115,9 +115,11 @@ GoGoldenHour/
 │   │   ├── bridge.js           # WebChannel bridge
 │   │   └── map.js              # Map logic
 │   └── map.html                # Leaflet.js map
+├── Makefile                    # Build automation
 ├── go.mod
 ├── go.sum
 ├── README.md
+├── CLAUDE.md
 ├── LICENSE.md
 └── CHANGELOG.md
 ```
@@ -128,6 +130,7 @@ GoGoldenHour/
 |---------|---------|
 | [github.com/mappu/miqt](https://github.com/mappu/miqt) | Qt6 bindings for Go |
 | [github.com/hablullah/go-sampa](https://github.com/hablullah/go-sampa) | Solar position algorithm (supports custom elevation angles) |
+| [github.com/ringsaturn/tzf](https://github.com/ringsaturn/tzf) | Timezone lookup from geographic coordinates |
 
 ## External APIs
 
@@ -138,7 +141,7 @@ GoGoldenHour/
 
 ## Configuration
 
-Settings are stored in `~/.config/gogoldenhour/settings.json`:
+Settings are stored in `~/.config/GoGoldenHour/settings.json`:
 
 ```json
 {
@@ -193,7 +196,9 @@ Due to Qt Location not being available in miqt, the map uses:
 - Leaflet.js for interactive mapping
 - OpenStreetMap tiles
 
-**Communication**: Map clicks are communicated to Go via console message interception (`OnJavaScriptConsoleMessage`). Location updates from Go to JavaScript use URL hash fragment changes, enabling smooth map panning without full page reloads.
+**Communication**:
+- **Go → JavaScript**: Location updates use URL hash fragment changes (`#lat,lon,zoom`), enabling smooth map panning without full page reloads
+- **JavaScript → Go**: Map clicks are communicated via console message interception (`OnJavaScriptConsoleMessage`) with the format `MAPCLICK:lat,lon`
 
 ### Solar Calculations
 

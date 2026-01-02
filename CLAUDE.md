@@ -46,6 +46,8 @@ cmd/gogoldenhour/main.go
             ├── service/solar/Calculator (go-sampa)
             ├── service/geolocation/IPAPIService
             ├── service/geocoding/NominatimService
+            ├── service/timezone/Lookup (tzf)
+            ├── config/DefaultHTTPTimeout (shared constants)
             └── storage/PreferencesStore
 ```
 
@@ -101,9 +103,47 @@ layout.AddWidget2(widget.QWidget, row, col)           // Single cell
 layout.AddWidget3(widget.QWidget, row, col, rowSpan, colSpan)  // Spanning
 ```
 
+## Helper Functions and Patterns
+
+The codebase uses extracted helper functions for common operations:
+
+**Geocoding Service** (`nominatim.go`):
+```go
+// Shared HTTP request handling
+func (s *NominatimService) doRequest(reqURL string) (*http.Response, error)
+```
+
+**Solar Calculator** (`calculator.go`):
+```go
+// Convert domain location to sampa format
+func toSampaLocation(loc domain.Location) sampa.Location
+
+// Extract time ranges from sun events
+func extractTimeRange(events map[string]sampa.SunPosition, startKey, endKey string) domain.TimeRange
+```
+
+**UI Widgets**:
+```go
+// LocationPanel - consolidated search trigger
+func (lp *LocationPanel) performSearch()
+
+// MapView - URL construction with zoom
+func (mv *MapView) buildLocationURL(lat, lon float64, zoom int) string
+const defaultZoom = 13
+```
+
+## Shared Configuration
+
+HTTP timeout is centralized in `config/config.go`:
+```go
+const DefaultHTTPTimeout = 10 * time.Second
+```
+
+Used by both `geolocation/ipapi.go` and `geocoding/nominatim.go`.
+
 ## Key Limitations
 
-1. **No RunJavaScript**: miqt doesn't expose `QWebEnginePage.RunJavaScript()`. Map updates by regenerating and reloading HTML.
+1. **No RunJavaScript**: miqt doesn't expose `QWebEnginePage.RunJavaScript()`. Map updates use URL hash fragment changes for smooth panning.
 
 2. **Initialization callbacks**: SettingsPanel triggers `OnValueChanged` during `applySettings()`. The App must check `mainWindow == nil` in `recalculate()`.
 
