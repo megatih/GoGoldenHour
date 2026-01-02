@@ -159,3 +159,39 @@ The app sets `QTWEBENGINE_CHROMIUM_FLAGS="--disable-gpu"` before Qt initializati
 - `domain.SunTimes` - sunrise/sunset + golden/blue hour ranges
 - `domain.TimeRange` - start/end times with `IsValid()` and duration formatting
 - `domain.Settings` - elevation angles, time format, auto-detect preference
+
+## Code Documentation
+
+All 17 source files have comprehensive documentation:
+
+### Documentation Standards
+- **Package headers**: Block comments explaining purpose, architecture role, key patterns
+- **Go doc style**: All exported types, functions, and methods
+- **Inline comments**: Complex logic, data flow, non-obvious implementation details
+- **ASCII diagrams**: UI layouts, architecture relationships, sun elevation angles
+- **miqt patterns**: Constructor suffixes, QDate pointer handling, layout methods
+
+### Key Documented Patterns
+```go
+// Constructor suffix pattern (documented in all widgets):
+// Suffix "2" = no parameters: qt.NewQLineEdit2()
+// Suffix "3" = with text: qt.NewQLabel3("text")
+
+// QDate pointer handling (documented in datepanel.go):
+currentDate := qt.QDate_CurrentDate()  // Returns *QDate
+dateEdit.SetDate(*currentDate)          // Must dereference
+
+// Thread safety (documented in app.go):
+mainthread.Wait(func() {
+    // All Qt widget updates must happen here
+})
+```
+
+### Files with Special Documentation
+| File | Special Documentation |
+|------|----------------------|
+| `internal/app/app.go` | Architecture diagram, initialization order |
+| `internal/domain/settings.go` | Sun elevation angle diagram |
+| `internal/service/solar/calculator.go` | 8 custom sun events table |
+| `internal/ui/widgets/mapview.go` | JS↔Go communication workaround |
+| `internal/ui/widgets/settingspanel.go` | Initialization callback warning |

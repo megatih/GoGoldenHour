@@ -1,3 +1,37 @@
+// Package widgets provides the individual UI components for GoGoldenHour.
+//
+// Each widget in this package is a self-contained UI component that:
+//   - Manages its own Qt widgets and layout
+//   - Communicates with the main window via callbacks
+//   - Has no direct dependencies on other widgets
+//
+// Available widgets:
+//   - MapView: Interactive Leaflet map in Qt WebEngine
+//   - LocationPanel: Location search and display
+//   - DatePanel: Date navigation with calendar
+//   - TimePanel: Golden/blue hour time display
+//   - SettingsPanel: User preferences configuration
+//
+// # miqt Qt6 API Patterns
+//
+// All widgets use miqt for Qt6 bindings. Common patterns:
+//
+// Constructor suffixes:
+//   - NewQWidget2(): No parameters (suffix "2")
+//   - NewQLabel3("text"): With text parameter (suffix "3")
+//   - NewQGroupBox3("title"): With title parameter (suffix "3")
+//
+// Layout methods:
+//   - layout.AddWidget(widget.QWidget): Takes single QWidget argument
+//   - layout.AddLayout(sublayout.QLayout): Takes single QLayout argument
+//
+// Grid layout:
+//   - AddWidget2(widget, row, col): Single cell
+//   - AddWidget3(widget, row, col, rowSpan, colSpan): Spanning cells
+//
+// Date handling:
+//   - QDate methods return *QDate (pointer)
+//   - Must dereference when calling SetDate: dateEdit.SetDate(*qdate)
 package widgets
 
 import (
@@ -10,23 +44,78 @@ import (
 	we "github.com/mappu/miqt/qt6/webengine"
 )
 
-// MapView wraps a QWebEngineView displaying a Leaflet map
+// =============================================================================
+// MapView
+// =============================================================================
+
+// MapView wraps a QWebEngineView displaying an interactive Leaflet map.
+//
+// The map is implemented using Leaflet.js (a JavaScript mapping library)
+// embedded in Qt WebEngine. This approach was chosen because:
+//   - Leaflet provides smooth, interactive maps with tile caching
+//   - OpenStreetMap tiles are free and don't require an API key
+//   - Qt WebEngine handles all the rendering and JavaScript execution
+//
+// # Communication with JavaScript
+//
+// Since miqt doesn't expose QWebEnginePage.RunJavaScript(), the widget uses
+// alternative communication methods:
+//
+// Go → JavaScript (location updates):
+//   - URL hash fragments: data:text/html;base64,...#lat,lon,zoom
+//   - JavaScript listens for 'hashchange' events
+//   - Smooth panning without page reload
+//
+// JavaScript → Go (map clicks):
+//   - JavaScript calls console.log("MAPCLICK:lat,lon")
+//   - Qt OnJavaScriptConsoleMessage intercepts the message
+//   - Go parses coordinates and invokes the callback
+//
+// # Embedded HTML
+//
+// The complete map HTML (including Leaflet library references) is embedded
+// as a base64-encoded data URL. This avoids the need for external HTML files
+// and ensures the map works immediately on load.
 type MapView struct {
-	view       *we.QWebEngineView
-	page       *we.QWebEnginePage
+	// view is the Qt WebEngine view that displays the map.
+	view *we.QWebEngineView
+
+	// page is the web page associated with the view.
+	// Used to intercept JavaScript console messages for click handling.
+	page *we.QWebEnginePage
+
+	// onMapClick is the callback invoked when the user clicks on the map.
+	// The callback receives the latitude and longitude of the clicked point.
 	onMapClick func(lat, lon float64)
-	ready      bool
+
+	// ready indicates whether the map has finished loading.
+	// Set to true when the OnLoadFinished signal fires with ok=true.
+	ready bool
+
+	// currentLat and currentLon track the current map center.
+	// Used when building URLs for location updates.
 	currentLat float64
 	currentLon float64
-	baseURL    string // Store base URL for hash-based updates
+
+	// baseURL is the data URL containing the map HTML.
+	// Location updates append a hash fragment: baseURL#lat,lon,zoom
+	baseURL string
 }
 
-// Default zoom level for the map
+// defaultZoom is the initial and default zoom level for the map.
+// Zoom level 13 shows approximately city-level detail (a few kilometers).
 const defaultZoom = 13
 
-// NewMapView creates a new map view widget
+// NewMapView creates a new map view widget with the given click handler.
+//
+// Parameters:
+//   - onMapClick: Callback invoked when user clicks on the map (lat, lon)
+//
+// Returns a fully initialized MapView ready to be added to a layout.
+// The map initially shows London (51.5074, -0.1278) until SetLocation is called.
 func NewMapView(onMapClick func(lat, lon float64)) *MapView {
 	mv := &MapView{
+		// NewQWebEngineView2(): No-param constructor (suffix "2")
 		view:       we.NewQWebEngineView2(),
 		onMapClick: onMapClick,
 		currentLat: 51.5074, // Default: London
@@ -37,7 +126,20 @@ func NewMapView(onMapClick func(lat, lon float64)) *MapView {
 	return mv
 }
 
-// buildLocationURL constructs a URL with location coordinates in the hash fragment
+// buildLocationURL constructs a URL with location coordinates in the hash fragment.
+//
+// This is the key mechanism for updating the map location without a full page
+// reload. The JavaScript in the map HTML listens for 'hashchange' events and
+// updates the map view accordingly.
+//
+// URL format: data:text/html;base64,...#latitude,longitude,zoom
+//
+// Parameters:
+//   - lat: Latitude of the map center
+//   - lon: Longitude of the map center
+//   - zoom: Zoom level (typically 13)
+//
+// Returns the complete URL with hash fragment.
 func (mv *MapView) buildLocationURL(lat, lon float64, zoom int) string {
 	return fmt.Sprintf("%s#%f,%f,%d", mv.baseURL, lat, lon, zoom)
 }

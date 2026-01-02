@@ -2,6 +2,8 @@
 
 A cross-platform desktop application for photographers to calculate Golden Hour and Blue Hour times. Built with pure Go using miqt Qt6 bindings and featuring an interactive OpenStreetMap.
 
+**Current Version**: 0.1.3 | **License**: AGPL v3 | **Status**: Stable
+
 ## Features
 
 - **Golden Hour Calculation**: Displays morning and evening golden hour times based on sun elevation
@@ -79,50 +81,45 @@ go build -o gogoldenhour ./cmd/gogoldenhour
 ```
 GoGoldenHour/
 ├── cmd/gogoldenhour/
-│   └── main.go                 # Application entry point
+│   └── main.go                 # Application entry point with GPU fix
 ├── internal/
 │   ├── app/
-│   │   └── app.go              # Application controller
+│   │   └── app.go              # Application controller (orchestrates all components)
 │   ├── config/
-│   │   └── config.go           # Configuration and shared constants
+│   │   └── config.go           # Configuration and shared constants (HTTP timeout)
 │   ├── domain/
-│   │   ├── location.go         # Location entity
-│   │   ├── settings.go         # Settings entity with validation
-│   │   └── suntime.go          # Sun time calculations entity
+│   │   ├── location.go         # Location entity with validation
+│   │   ├── settings.go         # Settings entity with elevation angle diagram
+│   │   └── suntime.go          # Sun times and TimeRange entities
 │   ├── service/
 │   │   ├── geocoding/
-│   │   │   └── nominatim.go    # Location search via Nominatim
+│   │   │   └── nominatim.go    # OpenStreetMap Nominatim API client
 │   │   ├── geolocation/
-│   │   │   └── ipapi.go        # IP-based location detection
+│   │   │   └── ipapi.go        # IP-API geolocation service
 │   │   ├── solar/
-│   │   │   └── calculator.go   # Solar position calculations
+│   │   │   └── calculator.go   # go-sampa solar calculations (8 custom events)
 │   │   └── timezone/
-│   │       └── lookup.go       # Timezone lookup from coordinates
+│   │       └── lookup.go       # Offline timezone lookup via tzf
 │   ├── storage/
-│   │   └── preferences.go      # Persistent storage
+│   │   └── preferences.go      # JSON settings persistence
 │   └── ui/
-│       ├── mainwindow.go       # Main window layout
+│       ├── mainwindow.go       # Main window with splitter layout
 │       └── widgets/
-│           ├── datepanel.go    # Date selection widget
-│           ├── locationpanel.go # Location display/search
-│           ├── mapview.go      # WebEngine map widget
-│           ├── settingspanel.go # Settings configuration
-│           └── timepanel.go    # Golden/Blue hour display
-├── web/
-│   ├── css/
-│   │   └── map.css             # Map styling
-│   ├── js/
-│   │   ├── bridge.js           # WebChannel bridge
-│   │   └── map.js              # Map logic
-│   └── map.html                # Leaflet.js map
-├── Makefile                    # Build automation
+│           ├── datepanel.go    # Date navigation with calendar popup
+│           ├── locationpanel.go # Location search and display
+│           ├── mapview.go      # Embedded Leaflet.js map (data URL)
+│           ├── settingspanel.go # Collapsible 2-column settings grid
+│           └── timepanel.go    # Golden/Blue hour time display
+├── Makefile                    # Build automation (build, run, test, vet)
 ├── go.mod
 ├── go.sum
-├── README.md
-├── CLAUDE.md
-├── LICENSE.md
-└── CHANGELOG.md
+├── README.md                   # This file
+├── CLAUDE.md                   # Claude Code AI assistant instructions
+├── LICENSE.md                  # AGPL v3 license
+└── CHANGELOG.md                # Version history
 ```
+
+> **Note**: The `web/` directory contains legacy files from an earlier implementation. The current version embeds the Leaflet.js map HTML directly in `mapview.go` using base64 data URLs for simpler deployment.
 
 ## Dependencies
 
@@ -218,6 +215,29 @@ customEvents := []sampa.CustomSunEvent{
 ### GPU Rendering Issues on ARM Devices
 
 If you see errors like `MESA: error: drmPrimeHandleToFD() failed` or `Backend texture is not a Vulkan texture`, the application automatically disables GPU acceleration for Qt WebEngine. This is handled internally via the `QTWEBENGINE_CHROMIUM_FLAGS` environment variable.
+
+## Code Documentation
+
+The codebase is extensively documented with comprehensive comments following Go documentation standards:
+
+### Documentation Features
+
+- **Package-level documentation**: Each package has a header explaining its purpose and role in the architecture
+- **Type documentation**: All exported types have detailed descriptions of their fields and responsibilities
+- **Method documentation**: Go doc style comments for all exported functions and methods
+- **Inline comments**: Complex logic, algorithms, and non-obvious implementation details are explained
+- **ASCII diagrams**: UI layouts and architectural relationships are visualized with text diagrams
+- **miqt API patterns**: Qt binding quirks (constructor suffixes, pointer handling) are documented extensively
+
+### Key Documentation Locations
+
+| File                                   | Documentation Highlights                                            |
+|----------------------------------------|---------------------------------------------------------------------|
+| `internal/app/app.go`                  | Architecture diagram, thread safety patterns, initialization order  |
+| `internal/domain/settings.go`          | Sun elevation angle diagram explaining golden/blue hour boundaries  |
+| `internal/service/solar/calculator.go` | 8 custom sun events for precise golden/blue hour calculation        |
+| `internal/ui/widgets/mapview.go`       | JavaScript↔Go communication workarounds (no RunJavaScript)          |
+| `internal/ui/widgets/settingspanel.go` | Initialization callback warning, grid layout patterns               |
 
 ## License
 
