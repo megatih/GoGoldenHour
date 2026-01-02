@@ -221,7 +221,7 @@ If you see errors like `MESA: error: drmPrimeHandleToFD() failed` or `Backend te
 
 ## License
 
-MIT License - see [LICENSE.md](LICENSE.md)
+AGPL v3 License - see [LICENSE.md](LICENSE.md)
 
 ## Contributing
 
